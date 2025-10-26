@@ -1,12 +1,18 @@
 <?php
 require_once __DIR__ . '/config.php';
 
+$cleanPattern = null;
+
 function clean_text(string $value, mysqli $conn): string
 {
+    global $cleanPattern;
+
+    $pattern = $cleanPattern ?? '/[^A-Za-z\s\.,-]/u';
+
     $value = trim($value);
-    $value = strip_tags($value);
-    $value = preg_replace('/[\x00-\x1F\x7F]+/u', '', $value);
-    $value = preg_replace('/[\r\n\t]+/', ' ', $value);
+    $value = preg_replace($pattern, '', $value);
+    $value = preg_replace('/\s{2,}/', ' ', $value);
+
     return $conn->real_escape_string($value);
 }
 
@@ -53,38 +59,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $submitted['location_id'] = $_POST['location_id'] ?? '';
     $submitted['attributes'] = isset($_POST['attributes']) ? (array) $_POST['attributes'] : [];
 
+    $dishNameClean = '';
     $dishNameRaw = $submitted['dish_name'];
-    if (trim($dishNameRaw) === '') {
+    $dishNameTrimmed = trim($dishNameRaw);
+    if ($dishNameTrimmed === '') {
         $errors[] = 'Dish name is required.';
-    } elseif (mb_strlen(trim($dishNameRaw)) > 120) {
+    } elseif (mb_strlen($dishNameTrimmed) > 120) {
         $errors[] = 'Dish name must be 120 characters or fewer.';
+    } elseif (!preg_match('/^[A-Za-z\s]+$/u', $dishNameTrimmed)) {
+        $errors[] = 'Dish name can only contain letters and spaces.';
     } else {
-        $dishNameClean = clean_text($dishNameRaw, $conn);
+        $cleanPattern = '/[^A-Za-z\s]/u';
+        $dishNameClean = clean_text($dishNameTrimmed, $conn);
     }
 
     $priceValue = null;
-    $priceRaw = trim($submitted['dish_price']);
-    if ($priceRaw === '') {
+    $priceRaw = $_POST['dish_price'] ?? '';
+    $priceTrimmed = trim($priceRaw);
+    if ($priceTrimmed === '') {
         $errors[] = 'Dish price is required.';
+    } elseif (!preg_match('/^\d+(\.\d+)?$/', $priceTrimmed)) {
+        $errors[] = 'Dish price must be a valid positive number.';
     } else {
-        $priceSanitized = filter_var($priceRaw, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
-        if ($priceSanitized === '' || !is_numeric($priceSanitized)) {
-            $errors[] = 'Dish price must be a valid number.';
-        } else {
-            $priceValue = (float) $priceSanitized;
-            if ($priceValue <= 0) {
-                $errors[] = 'Dish price must be greater than zero.';
-            }
+        $priceSanitized = preg_replace('/[^\d.]/', '', $priceTrimmed);
+        $priceValue = (float) $priceSanitized;
+        if ($priceValue <= 0) {
+            $errors[] = 'Dish price must be a valid positive number.';
         }
     }
 
+    $descriptionClean = '';
     $descriptionRaw = $submitted['dish_description'];
-    if (trim($descriptionRaw) === '') {
+    $descriptionTrimmed = trim($descriptionRaw);
+    if ($descriptionTrimmed === '') {
         $errors[] = 'Dish description is required.';
-    } elseif (mb_strlen(trim($descriptionRaw)) > 500) {
+    } elseif (mb_strlen($descriptionTrimmed) > 500) {
         $errors[] = 'Dish description must be 500 characters or fewer.';
+    } elseif (!preg_match('/^[A-Za-z\s\.,-]+$/u', $descriptionTrimmed)) {
+        $errors[] = 'Description can only contain letters, spaces, and punctuation.';
     } else {
-        $descriptionClean = clean_text($descriptionRaw, $conn);
+        $cleanPattern = '/[^A-Za-z\s\.,-]/u';
+        $descriptionClean = clean_text($descriptionTrimmed, $conn);
     }
 
     $categoryId = (int) $submitted['category_id'];
@@ -104,6 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = 'An invalid attribute was provided.';
                 break;
             }
+            $cleanPattern = '/[^A-Za-z0-9\s\.,-]/u';
             $cleanAttributes[] = clean_text($attributeValue, $conn);
         }
         $cleanAttributes = array_unique($cleanAttributes);

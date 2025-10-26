@@ -51,16 +51,24 @@
 
       if ($result && $result->num_rows > 0) {
           while ($row = $result->fetch_assoc()) {
-              echo "<tr>";
-              echo "<td>{$row['item_name']}</td>";
-              echo "<td>{$row['category_name']}</td>";
-              echo "<td>{$row['description']}</td>";
-              echo "<td>{$row['price']}</td>";
-              echo "<td>{$row['attributes']}</td>";
-              echo "</tr>";
+              $itemName = htmlspecialchars($row['item_name'] ?? '', ENT_QUOTES, 'UTF-8');
+              $categoryName = htmlspecialchars($row['category_name'] ?? '', ENT_QUOTES, 'UTF-8');
+              $description = htmlspecialchars($row['description'] ?? '', ENT_QUOTES, 'UTF-8');
+              $price = number_format((float) ($row['price'] ?? 0), 2, '.', '');
+              $attributes = $row['attributes'] !== null ? htmlspecialchars($row['attributes'], ENT_QUOTES, 'UTF-8') : '—';
+
+              echo '<tr>';
+              echo "<td>{$itemName}</td>";
+              echo "<td>{$categoryName}</td>";
+              echo "<td>{$description}</td>";
+              echo "<td>{$price}</td>";
+              echo "<td>{$attributes}</td>";
+              echo '</tr>';
           }
-      } else {
+      } elseif ($result) {
           echo "<tr><td colspan='5'>No menu items available.</td></tr>";
+      } else {
+          echo "<tr><td colspan='5'>We couldn't load the menu right now. Please try again later.</td></tr>";
       }
 
       $conn->close();

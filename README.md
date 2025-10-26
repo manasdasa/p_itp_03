@@ -34,3 +34,10 @@ Manas has successfully:
 ---
 
 *"Building software is like crafting art - it requires both technical skill and creative vision."*
+
+## ITP Progress
+
+### ITP-04 – Menu Management Enhancements
+- Added a private management form that validates and cleans menu submissions before saving them to the database.
+- Enabled dynamic attribute selection sourced from existing menu attribute data.
+- Ensured new dishes instantly appear on the public menu listing.
